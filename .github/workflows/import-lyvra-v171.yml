@@ -1,0 +1,81 @@
+name: Import LYVRA v1.7.1 Canonical Package
+
+on:
+  push:
+    branches: [lyvrabot]
+    paths:
+      - '.lyvra-import/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: lyvrabot
+          fetch-depth: 0
+
+      - name: Download canonical Drive package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet gdown
+          gdown --id '1x1TmOwwTZ2x6lqAvsn7qwW1Cysz9Lb_2' -O /tmp/lyvra-v171.zip
+          test -s /tmp/lyvra-v171.zip
+
+      - name: Verify package hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '9f7175461f6f3b7adec2e6edb00e27134f20f75ec1ffbe46fbc3874db61f56d7  /tmp/lyvra-v171.zip' | sha256sum -c -
+
+      - name: Extract clean repository tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/lyvra-extract
+          mkdir -p /tmp/lyvra-extract
+          unzip -q /tmp/lyvra-v171.zip -d /tmp/lyvra-extract
+          SRC='/tmp/lyvra-extract/LYVRA_CHARACTER_BOT_v1_7_1_CHARACTER_CONTINUITY_MEMORY_RECALL_ENGINE'
+          test -d "$SRC"
+          find "$SRC" -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find "$SRC" -type f -name '*.pyc' -delete
+          rsync -a --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.lyvra-import/' \
+            "$SRC/" ./
+          rm -rf .lyvra-import
+
+      - name: Validate imported source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f main.py
+          test -f ai_engine.py
+          test -f core/lyvra_identity_core.json
+          test -f memory_store.py
+          test -f scripts/selftest.py
+          python -m compileall -q .
+          python scripts/selftest.py
+          COUNT=$(find . -type f ! -path './.git/*' ! -path './.github/*' ! -path '*/__pycache__/*' ! -name '*.pyc' | wc -l)
+          echo "Imported file count: $COUNT"
+          test "$COUNT" -ge 94
+
+      - name: Commit complete unpacked bot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'LYVRA Repository Import'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Import complete unpacked LYVRA Character Bot v1.7.1'
+          git push origin HEAD:lyvrabot
