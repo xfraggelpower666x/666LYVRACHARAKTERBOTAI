@@ -1,0 +1,26 @@
+{
+  "name": "LYVRA_CHARACTER_BOT_v1_7_1_CHARACTER_CONTINUITY_MEMORY_RECALL_ENGINE",
+  "version": "v1.7.1",
+  "status": "tested character continuity memory and recall build; Markdown format correction",
+  "inherits_from": "v1.6.0 Causal Module Mesh",
+  "contains": [
+    "all v1.6.0 causal module mesh features",
+    "persistent Character Continuity Memory & Recall Engine",
+    "canonical character state and memory tiers",
+    "causal character event ledger",
+    "decision memory",
+    "relationship event memory",
+    "emotional-causal trigger graph",
+    "trait evidence and Living Baseline integration",
+    "automatic context recall before model generation",
+    "two-day recent memory plus relevant long-term recall",
+    "Markdown bootstrap export",
+    "complete state export and recovery snapshot ZIP",
+    "standalone CLI and Discord owner commands",
+    "character design source package and reference documents"
+  ],
+  "startup": "pip install -r requirements.txt && python -u main.py",
+  "selftest": "python scripts/selftest.py && python tests/test_character_continuity.py",
+  "snapshot": "python character_memory_cli.py snapshot ./exports/LYVRA_CHARACTER_SNAPSHOT.zip",
+  "supersedes": "v1.7.0 format-mistake build; corrected to standard Markdown .md"
+}
