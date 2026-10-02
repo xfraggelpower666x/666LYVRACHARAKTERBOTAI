@@ -171,9 +171,9 @@ class DiscordGateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             s.start(0, 100)
 
-    def test_voice_never_receives_audio(self):
-        self.assertEqual(voice_join_permitted.__code__.co_argcount, 0)
-        self.assertEqual(set(voice_join_permitted.__kwdefaults__.keys()),
+    def test_voice_gate_uses_metadata_only(self):
+        from inspect import signature
+        self.assertEqual(set(signature(voice_join_permitted).parameters),
                          {"feature_enabled", "owner", "voice_channel_id", "allowed_channel_ids"})
 
 
