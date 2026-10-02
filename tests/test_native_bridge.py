@@ -117,6 +117,13 @@ class LiveCircleTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.store.record(guild_id=1, author_id=2, meaning=message)
 
+    def test_forget_scoped_to_guild(self):
+        event = self.store.record(guild_id=1, author_id=2, meaning="erase me")
+        self.assertFalse(self.store.forget(2, event))
+        self.assertEqual(self.store.count(1), 1)
+        self.assertTrue(self.store.forget(1, event))
+        self.assertEqual(self.store.count(1), 0)
+
     def test_no_automatic_authority_update(self):
         self.store.record(guild_id=1, author_id=2, meaning="Learning candidate")
         rows = self.store.recent(1)
