@@ -13,6 +13,7 @@ from native_bridge import LiveCircleStore, NativeSource, RELATION_STATES
 from native_bridge.source import NativeSnapshot, presentation_context
 from native_bridge.interaction import SessionRegistry, voice_join_permitted
 from native_bridge.event_policy import message_permitted, split_discord_message, InteractionThrottle
+from native_bridge.radio_readonly import fetch_nowplaying
 
 try:
     import discord
@@ -202,6 +203,22 @@ async def cmd_refresh(ctx):
         await reply(ctx, "🔎 Read-only neu abgeglichen:\n" + s.compact())
     except Exception as exc:
         await reply(ctx, f"⚠️ GitHub-Readback ausstehend ({type(exc).__name__}).")
+
+
+@bot.command(name="nowplaying")
+async def cmd_nowplaying(ctx):
+    if not authorized(ctx):
+        return
+    if not on("LYVRA_RADIO_READ_ENABLED"):
+        await reply(ctx, "🎵 Die reine Radio-Metadatenabfrage ist noch nicht freigegeben.")
+        return
+    url = os.getenv("LYVRA_RADIO_NOWPLAYING_URL", "").strip()
+    host = os.getenv("LYVRA_RADIO_ALLOWED_HOST", "").strip()
+    try:
+        row = await asyncio.to_thread(fetch_nowplaying, url, allowed_host=host)
+        await reply(ctx, row.public_text())
+    except (ValueError, OSError, UnicodeError, json.JSONDecodeError):
+        await reply(ctx, "⚠️ Die Radio-Metadaten konnten nicht sicher gelesen werden.")
 
 
 @bot.command(name="session")
