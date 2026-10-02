@@ -74,6 +74,15 @@ class LiveCircleStore:
                 ORDER BY event_id DESC LIMIT ?""", (str(guild_id), n)).fetchall()
             return [dict(row) for row in rows]
 
+    def forget(self, guild_id: int | str, event_id: int) -> bool:
+        """Delete only an event owned by this guild; caller must authorize owner."""
+        if not isinstance(event_id, int) or event_id < 1:
+            raise ValueError("Invalid event ID")
+        with self._connection() as db:
+            result = db.execute("DELETE FROM events WHERE event_id=? AND guild_id=?",
+                                (event_id, str(guild_id)))
+            return result.rowcount == 1
+
     def count(self, guild_id: int | str) -> int:
         with self._connection() as db:
             return int(db.execute("SELECT COUNT(*) FROM events WHERE guild_id=?",
