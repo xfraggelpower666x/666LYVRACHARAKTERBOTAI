@@ -50,7 +50,7 @@ snapshot: NativeSnapshot | None = None
 
 
 def authorized(ctx) -> bool:
-    return ctx.guild is not None and ctx.channel.id in ALLOWED_CHANNELS
+    return ctx.guild is not None and (not ctx.author.bot) and ctx.channel.id in ALLOWED_CHANNELS
 
 
 def is_owner(ctx) -> bool:
@@ -166,6 +166,18 @@ async def cmd_record(ctx, state: str = "", *, meaning: str = ""):
         await reply(ctx, f"⚠️ {exc}")
         return
     await reply(ctx, f"🪻 Ereignis #{event_id} lokal gespeichert — keine native Promotion.")
+
+
+@bot.command(name="forget")
+async def cmd_forget(ctx, event_id: int = 0):
+    if not is_owner(ctx):
+        return
+    try:
+        deleted = circle.forget(ctx.guild.id, event_id)
+        await reply(ctx, "🪻 Lokaler LiveCircle-Eintrag gelöscht." if deleted
+                    else "Eintrag in diesem Server nicht gefunden.")
+    except ValueError:
+        await reply(ctx, "⚠️ Bitte eine gültige Ereignisnummer angeben.")
 
 
 @bot.command(name="refresh")
