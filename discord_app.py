@@ -14,10 +14,12 @@ from native_bridge.source import NativeSnapshot, presentation_context
 from native_bridge.interaction import SessionRegistry, voice_join_permitted
 from native_bridge.event_policy import message_permitted, split_discord_message, InteractionThrottle
 from native_bridge.radio_readonly import fetch_nowplaying
+from native_bridge.slash_policy import allowed_interaction, allowed_owner_interaction
 
 try:
     import discord
     from discord.ext import commands
+    from discord import app_commands
 except ImportError as exc:
     raise SystemExit("Install discord.py: pip install -r requirements-dev-bot.txt") from exc
 
@@ -41,6 +43,7 @@ def on(name: str, default: bool = False) -> bool:
 ALLOWED_CHANNELS = ids("LYVRA_ALLOWED_CHANNEL_IDS")
 OWNER_IDS = ids("LYVRA_OWNER_USER_IDS")
 VOICE_CHANNELS = ids("LYVRA_VOICE_ALLOWED_CHANNEL_IDS")
+SLASH_GUILDS = ids("LYVRA_SLASH_GUILD_IDS")
 if not ALLOWED_CHANNELS or not OWNER_IDS:
     raise SystemExit("Fail-closed: set LYVRA_ALLOWED_CHANNEL_IDS and LYVRA_OWNER_USER_IDS before start.")
 
@@ -53,6 +56,7 @@ circle = LiveCircleStore(os.getenv("LYVRA_LOCAL_DB", "state/lyvra_livecircle.sql
 chat_sessions = SessionRegistry(idle_seconds=900)
 chat_throttle = InteractionThrottle(cooldown_seconds=3)
 snapshot: NativeSnapshot | None = None
+slash_commands_synced = False
 
 
 def authorized(ctx) -> bool:
@@ -129,6 +133,21 @@ async def on_ready():
         print("LYVRA native Discord adapter ready. Core public state:", snapshot.public_state)
     except Exception as exc:
         print("LYVRA source pending:", type(exc).__name__)
+    # Slash registration is local and per-guild; never global by default.
+    global slash_commands_synced
+    if on("LYVRA_SLASH_ENABLED") and not slash_commands_synced:
+        if not SLASH_GUILDS:
+            print("LYVRA slash disabled: no explicit guild IDs configured")
+            return
+        try:
+            for guild_id in sorted(SLASH_GUILDS):
+                guild = discord.Object(id=guild_id)
+                if bot.tree.get_command("lyvra", guild=guild) is None:
+                    bot.tree.add_command(slash_group, guild=guild)
+                await bot.tree.sync(guild=guild)
+            slash_commands_synced = True
+        except (discord.HTTPException, discord.ClientException, ValueError) as exc:
+            print("LYVRA slash sync pending:", type(exc).__name__)
 
 
 @bot.command(name="status")
@@ -301,6 +320,139 @@ async def cmd_chat(ctx, *, message: str = ""):
     except Exception:
         # Never leak remote request headers, user message or access tokens.
         await reply(ctx, "⚠️ Die optionale KI-Verbindung ist momentan nicht verfügbar.")
+
+
+# Optional Discord interactions are a second UI over the same functions.
+# They are NOT a second identity, independent orchestrator or native router.
+slash_group = app_commands.Group(name="lyvra", description="LYVRA Discord Funktionen")
+
+
+def interaction_allowed(interaction: discord.Interaction) -> bool:
+    return allowed_interaction(
+        guild_id=interaction.guild_id,
+        channel_id=interaction.channel_id,
+        user_id=interaction.user.id,
+        user_is_bot=interaction.user.bot,
+        approved_guild_ids=SLASH_GUILDS,
+        approved_channel_ids=ALLOWED_CHANNELS,
+    )
+
+
+def interaction_owner(interaction: discord.Interaction) -> bool:
+    return allowed_owner_interaction(
+        user_id=interaction.user.id, owner_ids=OWNER_IDS,
+        interaction_allowed=interaction_allowed(interaction),
+    )
+
+
+async def slash_reject(interaction: discord.Interaction) -> None:
+    # Disclose no server IDs, internal permissions or channel metadata.
+    await interaction.response.send_message(
+        "🔒 LYVRA ist in diesem Kontext nicht freigegeben.", ephemeral=True,
+        allowed_mentions=discord.AllowedMentions.none())
+
+
+@slash_group.command(name="status", description="Status der öffentlichen LYVRA-Quellen")
+async def slash_status(interaction: discord.Interaction):
+    if not interaction_allowed(interaction):
+        await slash_reject(interaction)
+        return
+    if snapshot is None:
+        text = "🪻 GitHub-Readback ausstehend."
+    else:
+        text = "💎 LYVRA · Discord-Adapter\\n" + snapshot.compact() + (
+            "\\nNative Ganzsystem-Rehydration weiterhin ausstehend.")
+    await interaction.response.send_message(
+        text[:1800], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+
+
+@slash_group.command(name="session", description="Chat-Sitzung im Kanal kontrollieren")
+@app_commands.describe(action="Starten, stoppen oder Status")
+@app_commands.choices(action=[
+    app_commands.Choice(name="Starten", value="start"),
+    app_commands.Choice(name="Stoppen", value="stop"),
+    app_commands.Choice(name="Status", value="status"),
+])
+async def slash_session(interaction: discord.Interaction, action: app_commands.Choice[str]):
+    if not interaction_owner(interaction):
+        await slash_reject(interaction)
+        return
+    guild_id, channel_id = interaction.guild_id, interaction.channel_id
+    if action.value == "start":
+        chat_sessions.start(guild_id, channel_id)
+        message = "💜 Chat-Sitzung nur hier gestartet; Modell-API separat opt-in."
+    elif action.value == "stop":
+        chat_sessions.stop(guild_id, channel_id)
+        message = "🪻 Chat-Sitzung gestoppt."
+    else:
+        message = ("💜 Sitzung AKTIV" if chat_sessions.active(guild_id, channel_id)
+                   else "🪻 Sitzung INAKTIV")
+    await interaction.response.send_message(
+        message, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+
+
+@slash_group.command(name="chat", description="Mit LYVRA sprechen (nur freigegebene Sitzung)")
+@app_commands.describe(nachricht="Deine Nachricht an LYVRA")
+async def slash_chat(interaction: discord.Interaction, nachricht: str):
+    if not interaction_allowed(interaction):
+        await slash_reject(interaction)
+        return
+    guild_id, channel_id, user_id = (
+        interaction.guild_id, interaction.channel_id, interaction.user.id)
+    if not chat_sessions.active(guild_id, channel_id):
+        await interaction.response.send_message(
+            "🔒 Owner muss zuerst /lyvra session start ausführen.",
+            ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+        return
+    if not nachricht.strip() or len(nachricht) > 1200:
+        await interaction.response.send_message(
+            "⚠️ Bitte eine Nachricht mit höchstens 1200 Zeichen angeben.",
+            ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+        return
+    if not chat_throttle.allow(guild_id, channel_id, user_id):
+        await interaction.response.send_message(
+            "🪻 Bitte kurz warten, bevor du erneut schreibst.", ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none())
+        return
+    if snapshot is None:
+        await interaction.response.send_message(
+            "⚠️ Native Quelle noch nicht lesbar.", ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none())
+        return
+    await interaction.response.defer(thinking=True, ephemeral=True)
+    try:
+        response = await generate(nachricht, snapshot)
+    except Exception:
+        response = "⚠️ Die optionale KI-Verbindung ist momentan nicht verfügbar."
+    chat_sessions.touch(guild_id, channel_id)
+    # Chat replies are private to the requesting user; no accidental broadcast.
+    for part in split_discord_message(response, limit=1800, max_chunks=6):
+        await interaction.followup.send(
+            part, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+
+
+@slash_group.command(name="nowplaying", description="Öffentliche Radio-Metadaten lesen")
+async def slash_nowplaying(interaction: discord.Interaction):
+    if not interaction_allowed(interaction):
+        await slash_reject(interaction)
+        return
+    if not on("LYVRA_RADIO_READ_ENABLED"):
+        await interaction.response.send_message(
+            "🎵 Radio-Metadaten sind noch nicht freigegeben.", ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none())
+        return
+    await interaction.response.defer(thinking=True, ephemeral=True)
+    try:
+        row = await asyncio.to_thread(
+            fetch_nowplaying,
+            os.getenv("LYVRA_RADIO_NOWPLAYING_URL", "").strip(),
+            allowed_host=os.getenv("LYVRA_RADIO_ALLOWED_HOST", "").strip(),
+        )
+        text = row.public_text()
+    except (ValueError, OSError, UnicodeError, json.JSONDecodeError):
+        text = "⚠️ Radio-Metadaten konnten nicht sicher gelesen werden."
+    await interaction.followup.send(
+        text, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
 
 if __name__ == "__main__":
