@@ -1,0 +1,33 @@
+name: LYVRA Native LiveCircle Adapter Checks
+on:
+  pull_request:
+    branches: [lyvrabot]
+    paths:
+      - 'native_bridge/**'
+      - 'tests/**'
+      - 'discord_app.py'
+      - 'requirements-dev-bot.txt'
+      - '.github/workflows/native-bridge-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile syntax without secrets or network
+        run: python -m compileall -q native_bridge discord_app.py tests
+      - name: Run offline native bridge tests
+        run: python -m unittest discover -s tests -v
+      - name: Check no bundled local private state
+        run: |
+          test ! -e state/lyvra_livecircle.sqlite3
+          test ! -e .env
+          test ! -e character_state
