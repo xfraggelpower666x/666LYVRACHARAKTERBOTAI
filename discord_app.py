@@ -12,6 +12,7 @@ import urllib.request
 from native_bridge import LiveCircleStore, NativeSource, RELATION_STATES
 from native_bridge.source import NativeSnapshot, presentation_context
 from native_bridge.interaction import SessionRegistry, voice_join_permitted
+from native_bridge.event_policy import message_permitted, split_discord_message, InteractionThrottle
 
 try:
     import discord
@@ -49,11 +50,14 @@ bot = commands.Bot(command_prefix="!lyvra ", intents=intents,
 source = NativeSource()
 circle = LiveCircleStore(os.getenv("LYVRA_LOCAL_DB", "state/lyvra_livecircle.sqlite3"))
 chat_sessions = SessionRegistry(idle_seconds=900)
+chat_throttle = InteractionThrottle(cooldown_seconds=3)
 snapshot: NativeSnapshot | None = None
 
 
 def authorized(ctx) -> bool:
-    return ctx.guild is not None and (not ctx.author.bot) and ctx.channel.id in ALLOWED_CHANNELS
+    return message_permitted(guild_id=getattr(ctx.guild, 'id', None),
+                             channel_id=ctx.channel.id, author_is_bot=ctx.author.bot,
+                             allowed_channels=ALLOWED_CHANNELS)
 
 
 def is_owner(ctx) -> bool:
@@ -61,7 +65,13 @@ def is_owner(ctx) -> bool:
 
 
 async def reply(ctx, text: str):
-    await ctx.reply(text[:1800], mention_author=False)
+    # Never silently truncate a status or creative reply or accidentally ping users.
+    parts = split_discord_message(text, limit=1800, max_chunks=6)
+    for index, part in enumerate(parts):
+        if index == 0:
+            await ctx.reply(part, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+        else:
+            await ctx.send(part, allowed_mentions=discord.AllowedMentions.none())
 
 
 async def refresh():
@@ -259,6 +269,9 @@ async def cmd_chat(ctx, *, message: str = ""):
         return
     if not message.strip():
         await reply(ctx, "💜 Schreib deine Nachricht hinter !lyvra chat.")
+        return
+    if not chat_throttle.allow(ctx.guild.id, ctx.channel.id, ctx.author.id):
+        await reply(ctx, "🪻 Einen Moment bitte — die nächste Chat-Anfrage ist nach der kurzen Pause möglich.")
         return
     if snapshot is None:
         await reply(ctx, "⚠️ Native Quelle noch nicht lesbar. Nutze !lyvra status.")
