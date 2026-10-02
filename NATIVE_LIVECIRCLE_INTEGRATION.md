@@ -40,3 +40,14 @@ Native relational privacy contract explicitly bars protected creator history and
 5. Native-to-bot version fingerprint, required adapter contract, explicit PR review, staged rollback and actual bot process deployment/Discord command readback.
 6. Evaluate downstream relevant update to both LYVRA plugins, GPT and WEBLyvra; create separate targeted verified release only if materially affected.
 7. Never place creator-private relational state or credentials in public repository.
+
+## 2026-10-02 — Third-party code comparison and controlled features
+Owner-shared references: `xfraggelpower666x/character.ai-bot`, `Discord-Voice-Channel-Bot`, `discord-ai-bot`, plus nine other submitted sample archives and a second copy of this repo bootstrap. **References are treated as untrusted examples, not LYVRA authority or automatic dependencies.**
+
+Added two architectural patterns **implemented afresh** in this Python adapter:
+- Per-guild/per-channel expiring conversation sessions, controlled by `!lyvra session start|stop|status`. A user cannot turn on global chat merely by mentioning the bot. A 15-minute inactivity threshold applies to local session authorization; API forwarding independently requires `LYVRA_CHAT_FORWARD_ENABLED=true`.
+- Explicit owner-only `!lyvra voice join|leave|status`: the bot can join an allowlisted voice channel only when `LYVRA_VOICE_ENABLED=true`, a member is already in that voice channel and its ID is in `LYVRA_VOICE_ALLOWED_CHANNEL_IDS`. Join/leave does **not** record, transcribe or synthesize voice. Voice requires optional `discord.py[voice]`/PyNaCl installation and the appropriate Discord permissions.
+
+Potential later steps: consent-visible STT/TTS, speech activity boundaries, rate/cost controls, per-speaker retention, optional production-grade slash commands, encrypted user-specific continuity where appropriately authorized. **No automatic recording, no default voice surveillance, no unreviewed Character.AI cookie authentication**.
+
+Security observations: a file named `.env` exists as a tracked file in the public `Discord-Voice-Channel-Bot` repository. Its values were deliberately not read; owner must check whether real secrets were ever committed and rotate/remove secrets as needed. Other historical sample archives include an `.env` member or old model dependencies; never import them as credentials or current auth contracts.
