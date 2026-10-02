@@ -11,6 +11,7 @@ import urllib.request
 
 from native_bridge import LiveCircleStore, NativeSource, RELATION_STATES
 from native_bridge.source import NativeSnapshot, presentation_context
+from native_bridge.interaction import SessionRegistry, voice_join_permitted
 
 try:
     import discord
@@ -37,6 +38,7 @@ def on(name: str, default: bool = False) -> bool:
 
 ALLOWED_CHANNELS = ids("LYVRA_ALLOWED_CHANNEL_IDS")
 OWNER_IDS = ids("LYVRA_OWNER_USER_IDS")
+VOICE_CHANNELS = ids("LYVRA_VOICE_ALLOWED_CHANNEL_IDS")
 if not ALLOWED_CHANNELS or not OWNER_IDS:
     raise SystemExit("Fail-closed: set LYVRA_ALLOWED_CHANNEL_IDS and LYVRA_OWNER_USER_IDS before start.")
 
@@ -46,6 +48,7 @@ bot = commands.Bot(command_prefix="!lyvra ", intents=intents,
                    allowed_mentions=discord.AllowedMentions.none(), help_command=None)
 source = NativeSource()
 circle = LiveCircleStore(os.getenv("LYVRA_LOCAL_DB", "state/lyvra_livecircle.sqlite3"))
+chat_sessions = SessionRegistry(idle_seconds=900)
 snapshot: NativeSnapshot | None = None
 
 
@@ -191,9 +194,68 @@ async def cmd_refresh(ctx):
         await reply(ctx, f"⚠️ GitHub-Readback ausstehend ({type(exc).__name__}).")
 
 
+@bot.command(name="session")
+async def cmd_session(ctx, action: str = "status"):
+    if not is_owner(ctx):
+        return
+    action = action.lower()
+    if action == "start":
+        chat_sessions.start(ctx.guild.id, ctx.channel.id)
+        await reply(ctx, "💜 Chat-Sitzung nur in diesem Kanal für höchstens 15 Minuten freigegeben; externe KI bleibt separat opt-in.")
+    elif action == "stop":
+        chat_sessions.stop(ctx.guild.id, ctx.channel.id)
+        await reply(ctx, "🪻 Lokale Chat-Sitzung beendet.")
+    elif action == "status":
+        await reply(ctx, "💜 Sitzung: " + ("AKTIV" if chat_sessions.active(ctx.guild.id, ctx.channel.id) else "INAKTIV"))
+    else:
+        await reply(ctx, "Nutze !lyvra session start|stop|status.")
+
+
+@bot.command(name="voice")
+async def cmd_voice(ctx, action: str = "status"):
+    if not is_owner(ctx):
+        return
+    action = action.lower()
+    current_voice = ctx.guild.voice_client
+    if action == "status":
+        await reply(ctx, "🎙️ Voice: " + ("verbunden (ohne Aufnahme)" if current_voice and current_voice.is_connected() else "getrennt")
+                    + " · automatische Transkription und Sprachsynthese sind NICHT implementiert.")
+        return
+    if action == "leave":
+        if current_voice and current_voice.is_connected():
+            await current_voice.disconnect(force=True)
+        await reply(ctx, "🎙️ Sprachkanal verlassen.")
+        return
+    if action != "join":
+        await reply(ctx, "Nutze !lyvra voice join|leave|status.")
+        return
+    channel = getattr(getattr(ctx.author, "voice", None), "channel", None)
+    if not voice_join_permitted(
+        feature_enabled=on("LYVRA_VOICE_ENABLED"),
+        owner=is_owner(ctx),
+        voice_channel_id=getattr(channel, "id", None),
+        allowed_channel_ids=VOICE_CHANNELS,
+    ):
+        await reply(ctx, "🔒 Voice-Join nicht freigegeben: Owner, Server-Voice-Kanal und Voice-Opt-in prüfen.")
+        return
+    try:
+        if current_voice and current_voice.is_connected():
+            if current_voice.channel.id != channel.id:
+                await current_voice.move_to(channel)
+        else:
+            await channel.connect(timeout=15, reconnect=False)
+    except (discord.ClientException, discord.Forbidden, TimeoutError, ImportError, OSError):
+        await reply(ctx, "⚠️ Voice-Verbindung fehlgeschlagen (Berechtigung/optionale Voice-Abhängigkeiten prüfen).")
+        return
+    await reply(ctx, "🎙️ Im freigegebenen Sprachkanal. Keine Aufnahme, kein Mithören und kein TTS/STT aktiviert.")
+
+
 @bot.command(name="chat")
 async def cmd_chat(ctx, *, message: str = ""):
     if not authorized(ctx):
+        return
+    if not chat_sessions.active(ctx.guild.id, ctx.channel.id):
+        await reply(ctx, "🔒 Starte zuerst als Owner: !lyvra session start.")
         return
     if not message.strip():
         await reply(ctx, "💜 Schreib deine Nachricht hinter !lyvra chat.")
@@ -204,6 +266,7 @@ async def cmd_chat(ctx, *, message: str = ""):
     try:
         async with ctx.typing():
             response = await generate(message, snapshot)
+        chat_sessions.touch(ctx.guild.id, ctx.channel.id)
         await reply(ctx, response)
     except Exception:
         # Never leak remote request headers, user message or access tokens.
