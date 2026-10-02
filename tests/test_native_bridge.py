@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from native_bridge.livecircle import LiveCircleStore, RELATION_STATES
+from native_bridge.interaction import SessionRegistry, voice_join_permitted
 from native_bridge.source import NativeSource, NativeSnapshot, PUBLIC_CONTEXT_PATHS, POINTER_PATH, presentation_context
 
 
@@ -130,6 +131,50 @@ class LiveCircleTests(unittest.TestCase):
         self.assertEqual(rows[0]["evidence_class"], "DISCORD_OWNER_NOTE")
         self.assertNotIn("pointer", rows[0])
         self.assertNotIn("authority", rows[0])
+
+
+class DiscordGateTests(unittest.TestCase):
+    def test_sessions_start_and_expire(self):
+        s = SessionRegistry(idle_seconds=900)
+        self.assertFalse(s.active(1, 5, now=100))
+        s.start(1, 5, now=100)
+        self.assertTrue(s.active(1, 5, now=999))
+        self.assertFalse(s.active(1, 5, now=1000))
+
+    def test_sessions_scope_separation(self):
+        s = SessionRegistry()
+        s.start(100, 5, now=100)
+        self.assertFalse(s.active(200, 5, now=110))
+        self.assertFalse(s.active(100, 6, now=110))
+        self.assertTrue(s.active(100, 5, now=110))
+
+    def test_session_touch_and_stop(self):
+        s = SessionRegistry(idle_seconds=10)
+        s.start(1, 2, now=100)
+        self.assertTrue(s.touch(1, 2, now=105))
+        self.assertTrue(s.active(1, 2, now=114))
+        self.assertTrue(s.stop(1, 2))
+        self.assertFalse(s.active(1, 2, now=115))
+
+    def test_no_implicit_voice_join(self):
+        self.assertFalse(voice_join_permitted(feature_enabled=False, owner=True,
+                          voice_channel_id=3, allowed_channel_ids={3}))
+        self.assertFalse(voice_join_permitted(feature_enabled=True, owner=False,
+                          voice_channel_id=3, allowed_channel_ids={3}))
+        self.assertFalse(voice_join_permitted(feature_enabled=True, owner=True,
+                          voice_channel_id=4, allowed_channel_ids={3}))
+        self.assertTrue(voice_join_permitted(feature_enabled=True, owner=True,
+                          voice_channel_id=3, allowed_channel_ids={3}))
+
+    def test_invalid_session_scope(self):
+        s = SessionRegistry()
+        with self.assertRaises(ValueError):
+            s.start(0, 100)
+
+    def test_voice_never_receives_audio(self):
+        self.assertEqual(voice_join_permitted.__code__.co_argcount, 0)
+        self.assertEqual(set(voice_join_permitted.__kwdefaults__.keys()),
+                         {"feature_enabled", "owner", "voice_channel_id", "allowed_channel_ids"})
 
 
 if __name__ == "__main__":
