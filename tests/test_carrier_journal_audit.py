@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from native_bridge.carrier_journal import SCHEMA, record_digest
+from native_bridge.carrier_journal import SCHEMA, record_digest, append_local_journal
 from native_bridge.carrier_journal_audit import verify_history, readback
 
 def record():
@@ -37,6 +37,17 @@ class JournalAuditTests(unittest.TestCase):
         source["history"].append(dict(source["history"][0]))
         with self.assertRaises(ValueError):
             verify_history(source)
+    def test_corrupted_history_blocks_append(self):
+        previous = document(record())
+        previous["history"][0]["record"]["native_head"] = "b"*40
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"history.json"
+            before = json.dumps(previous)
+            path.write_text(before, encoding="utf-8")
+            with self.assertRaises(ValueError):
+                append_local_journal(path, record())
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+
     def test_wrong_schema_rejected(self):
         with self.assertRaises(ValueError):
             verify_history({"schema": "UNKNOWN", "history": []})
