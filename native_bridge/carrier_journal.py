@@ -67,6 +67,8 @@ def append_local_journal(path, record):
         parsed = json.loads(p.read_text(encoding="utf-8"))
         if parsed.get("schema") != SCHEMA or not isinstance(parsed.get("history"), list):
             raise ValueError("Unknown journal schema: refuse overwrite")
+        from native_bridge.carrier_journal_audit import verify_history
+        verify_history(parsed)
         previous = parsed["history"]
     digest = record_digest(record)
     if any(entry.get("digest") == digest for entry in previous):
