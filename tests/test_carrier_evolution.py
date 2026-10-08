@@ -36,6 +36,19 @@ class CarrierEvolutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             candidates_from_pointer({"status":"DRAFT","current_known_whole_state":{}}, SHA)
 
+    def test_actual_native_website_field_is_detected(self):
+        sample = {"status": "CURRENT_PRODUCTIVE_VERIFIED",
+                  "current_known_whole_state": {"lyvra_pet_website_deployment": "VERIFIED"}}
+        result = candidates_from_pointer(sample, SHA)
+        website = next(x for x in result["surfaces"] if x["surface"] == "website")
+        self.assertEqual(website["status"], "REVIEW_CANDIDATE")
+        self.assertFalse(website["integration_verified"])
+
+    def test_invalid_pinned_head_rejected(self):
+        with self.assertRaises(ValueError):
+            candidates_from_pointer({"status": "CURRENT_PRODUCTIVE_VERIFIED",
+                                     "current_known_whole_state": {}}, "latest")
+
     def test_missing_surface_is_open(self):
         r = candidates_from_pointer({"status":"CURRENT_PRODUCTIVE_VERIFIED",
                                      "current_known_whole_state":{}}, SHA)
