@@ -53,6 +53,8 @@ def append_local_journal(path, record):
     underneath a caller-supplied private local state directory.
     """
     p = Path(path)
+    if p.is_symlink() or p.parent.is_symlink():
+        raise ValueError("Linked journal destination forbidden")
     if p.suffix != ".json" or p.name.startswith("."):
         raise ValueError("Journal requires named .json file")
     if record.get("schema") != SCHEMA or record.get("native_mutated") is not False:
