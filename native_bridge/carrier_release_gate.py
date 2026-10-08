@@ -16,13 +16,18 @@ def decision(coverage, compatibility, *, native_head, carrier_head):
         raise ValueError("Stale contract coverage")
     if compatibility.get("native_head") != native_head or compatibility.get("carrier_head") != carrier_head:
         raise ValueError("Stale compatibility evidence")
-    known = {f.get("surface"): f for f in compatibility.get("findings", ())}
-    if set(known) != set(SURFACES) or len(compatibility.get("findings", ())) != len(SURFACES):
+    findings = compatibility.get("findings", ())
+    if not isinstance(findings, (list, tuple)) or any(not isinstance(f, dict) for f in findings):
+        raise ValueError("Malformed compatibility findings")
+    known = {f.get("surface"): f for f in findings}
+    if set(known) != set(SURFACES) or len(findings) != len(SURFACES):
         raise ValueError("Incomplete compatibility findings")
     checked = {}
     for surface in SURFACES:
         blob_ok = coverage.get("surfaces", {}).get(surface, {}).get("status") == "BLOB_READBACK_VERIFIED"
-        contract_status = known[surface]["status"]
+        contract_status = known[surface].get("status")
+        if contract_status not in {"COMPATIBLE_DEV", "READBACK_PENDING", "ADAPTATION_REVIEW", "TEST_PENDING"}:
+            raise ValueError("Unknown compatibility status")
         checked[surface] = {
             "blob_verified": blob_ok,
             "compatibility": contract_status,
