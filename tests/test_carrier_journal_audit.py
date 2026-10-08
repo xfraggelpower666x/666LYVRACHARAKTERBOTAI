@@ -48,6 +48,16 @@ class JournalAuditTests(unittest.TestCase):
                 append_local_journal(path, record())
             self.assertEqual(path.read_text(encoding="utf-8"), before)
 
+    def test_linked_journal_destination_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            destination = Path(folder) / "original.json"
+            link = Path(folder) / "linked.json"
+            destination.write_text(json.dumps({"schema": SCHEMA, "history": []}), encoding="utf-8")
+            link.symlink_to(destination)
+            with self.assertRaises(ValueError):
+                append_local_journal(link, record())
+            self.assertEqual(readback(destination)["entries"], 0)
+
     def test_wrong_schema_rejected(self):
         with self.assertRaises(ValueError):
             verify_history({"schema": "UNKNOWN", "history": []})
