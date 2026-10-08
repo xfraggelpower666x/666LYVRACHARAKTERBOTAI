@@ -13,6 +13,20 @@ class GateChecks(unittest.TestCase):
         self.assertFalse(result["deployment_authorized"])
         self.assertTrue(result["manual_approval_required"])
         self.assertTrue(all(v["release_gate"]=="REVIEW_ONLY" for v in result["surfaces"].values()))
+    def test_duplicate_surface_rejected(self):
+        coverage={"native_head":A,"carrier_head":B,"surfaces":{}}
+        findings=[{"surface":s,"status":"COMPATIBLE_DEV"} for s in SURFACES]
+        findings[-1]=dict(findings[0])
+        with self.assertRaises(ValueError):
+            decision(coverage,{"native_head":A,"carrier_head":B,"findings":findings},native_head=A,carrier_head=B)
+
+    def test_unknown_status_rejected(self):
+        coverage={"native_head":A,"carrier_head":B,"surfaces":{}}
+        findings=[{"surface":s,"status":"COMPATIBLE_DEV"} for s in SURFACES]
+        findings[-1]["status"]="UNKNOWN"
+        with self.assertRaises(ValueError):
+            decision(coverage,{"native_head":A,"carrier_head":B,"findings":findings},native_head=A,carrier_head=B)
+
     def test_stale_revision(self):
         with self.assertRaises(ValueError):
             decision({}, {}, native_head="invalid",carrier_head=B)
