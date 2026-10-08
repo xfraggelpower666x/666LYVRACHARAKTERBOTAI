@@ -15,7 +15,7 @@ FIELDS = {
     "native_identity": ("character_personality_subcontinuity", "character_personality_rehydration"),
     "personality_livecircle": ("character_personality_livecircle", "semantic_causal_relational_memory"),
     "music_speech": ("track_design_master_music_base", "speech_design"),
-    "website": ("weblyvra_freshness", "lyvra_pet_website"),
+    "website": ("lyvra_pet_website", "lyvra_pet_website_deployment"),
     "dashboard": ("lyvra_pet_dashboard", "repository_project_dashboard"),
     "visual_intelligence": ("lyvra_pet_visual_interface", "lyvra_pet_browser_renderer"),
     "plugin_native": ("native_plugin_current", "plugin_surface_release_set"),
@@ -25,6 +25,8 @@ FIELDS = {
 
 
 def candidates_from_pointer(pointer: dict, pinned_head: str) -> dict:
+    if not isinstance(pinned_head, str) or len(pinned_head) != 40 or any(ch not in "0123456789abcdef" for ch in pinned_head):
+        raise ValueError("Pinned native HEAD invalid")
     if pointer.get("status") != "CURRENT_PRODUCTIVE_VERIFIED":
         raise ValueError("Native current authority not verified")
     state = pointer.get("current_known_whole_state")
