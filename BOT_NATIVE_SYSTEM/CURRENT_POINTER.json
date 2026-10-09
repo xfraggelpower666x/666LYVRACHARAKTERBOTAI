@@ -1,0 +1,12 @@
+{
+  "schema": "BOT_CURRENT_POINTER_v1",
+  "status": "DEV_CANDIDATE_ONLY",
+  "canonical_branch": "lyvrabot-native-system-dev-20261010",
+  "source_baseline_commit": "4aa24e65d4cb15e8d7a13329ccc0fca8074a5766",
+  "runtime_head_selected": false,
+  "prod_head_unchanged": true,
+  "discord_deployment": false,
+  "worker_auth_ready": false,
+  "latest_validated_release": "UNDETERMINED",
+  "note": "Only source baseline pinned; NOT a proof of all subsequent commits or native LYVRA CURRENT."
+}
