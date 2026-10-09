@@ -1,0 +1,38 @@
+name: Bot Native System Offline Checks
+on:
+  push:
+    branches:
+      - lyvrabot-native-system-dev-20261010
+    paths:
+      - 'BOT_NATIVE_SYSTEM/**'
+      - '.github/workflows/bot-native-system-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  no-network-contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax verification
+        run: python -m compileall -q BOT_NATIVE_SYSTEM/runtime
+      - name: Pure offline bot system regression suite
+        run: cd BOT_NATIVE_SYSTEM/runtime && python -m unittest -v test_bot_runtime.py
+      - name: Verify checked-in manifest and pointer are fail-closed
+        run: |
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,"BOT_NATIVE_SYSTEM/runtime")
+          from bot_runtime import validate_system
+          root="BOT_NATIVE_SYSTEM/"
+          with open(root+"MANIFEST.json") as f: m=json.load(f)
+          with open(root+"CURRENT_POINTER.json") as f: p=json.load(f)
+          result=validate_system(m,p)
+          print(result)
+          if result["status"]!="STRUCTURE_PASS" or result["release_ready"]:
+              sys.exit(1)
+          PY
