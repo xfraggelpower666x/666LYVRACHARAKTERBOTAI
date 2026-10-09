@@ -456,6 +456,11 @@ async def slash_nowplaying(interaction: discord.Interaction):
 
 
 if __name__ == "__main__":
+    # Security hold: no Discord login until a separately verified local+worker
+    # authorization path is implemented and tested. Do not remove by toggling env.
+    if not on("DISCORD_DEPLOYMENT_ENABLED", False):
+        raise SystemExit("FAIL_CLOSED: Discord deployment disabled by default.")
+    raise SystemExit("FAIL_CLOSED: worker authorization before login is not implemented.")
     token = os.getenv("DISCORD_TOKEN", "").strip()
     if not token or token.startswith("DEIN_"):
         raise SystemExit("DISCORD_TOKEN is missing.")
