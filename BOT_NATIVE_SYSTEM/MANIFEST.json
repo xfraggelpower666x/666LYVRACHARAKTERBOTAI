@@ -1,0 +1,29 @@
+{
+  "schema": "BOT_NATIVE_SYSTEM_MANIFEST_v1",
+  "system_id": "666LYVRA-CHARACTER-BOT-CORE-001",
+  "name": "666LYVRA CHARACTER BOT",
+  "status": "DEV_NOT_PROMOTED",
+  "identity_authority": "native_LYVRA_external",
+  "source_branch": "lyvrabot-native-system-dev-20261010",
+  "source_head": "4aa24e65d4cb15e8d7a13329ccc0fca8074a5766",
+  "root": "BOT_NATIVE_SYSTEM",
+  "facets": [
+    "identity_boundary",
+    "repository_continuity",
+    "livecircle",
+    "rehydration",
+    "codeforge",
+    "trigger_router",
+    "security_worker",
+    "discord_transport",
+    "native_bridge",
+    "radio_readonly",
+    "pet_readonly",
+    "release_recovery"
+  ],
+  "triggers_file": "TRIGGERS.md",
+  "current_pointer": "CURRENT_POINTER.json",
+  "worker": "lyvra-character-bot-auth",
+  "discord_login_allowed": false,
+  "lyvra_worker_writes_allowed": false
+}
