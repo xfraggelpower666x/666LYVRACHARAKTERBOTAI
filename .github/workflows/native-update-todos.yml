@@ -1,0 +1,39 @@
+name: LYVRA Native Updates → Discord Bot TODO
+# Passive issue-only propagation. No bot runtime, secrets, native writes or releases.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [lyvrabot]
+    paths:
+      - 'automation/native_update_todos.py'
+      - 'automation/test_native_update_todos.py'
+      - '.github/workflows/native-update-todos.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: lyvra-bot-native-todo
+  cancel-in-progress: false
+
+jobs:
+  passive-todo-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax-check passive watcher
+        run: python -m compileall -q automation
+      - name: Test relevance detection and no-lost-checkbox safeguards
+        run: python -m unittest discover -s automation -p 'test_*.py' -v
+      - name: Compare productive LYVRA changes and update BOT TODO issue
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python automation/native_update_todos.py
