@@ -14,15 +14,15 @@ function signed(body, timestamp = String(Math.floor(Date.now()/1000))) {
   });
 }
 test("valid signature and ping only", async()=>{
-  const r=await adapter.fetch(signed('{"type":1}'),{DISCORD_PUBLIC_KEY:pk});
+  const r=await adapter.fetch(signed('{"type":1}'),{DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true'});
   assert.equal(r.status,200);assert.deepEqual(await r.json(),{type:1});
 });
 test("ordinary signed commands remain blocked",async()=>{
-  const r=await adapter.fetch(signed('{"type":2}'),{DISCORD_PUBLIC_KEY:pk});
+  const r=await adapter.fetch(signed('{"type":2}'),{DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true'});
   assert.equal((await r.json()).data.flags,64);
 });
 test("no configured public key denies",async()=>{
-  const r=await adapter.fetch(signed('{"type":1}'),{});
+  const r=await adapter.fetch(signed('{"type":1}'),{BOT_INTERACTIONS_TEST_ENABLED:'true'});
   assert.equal(r.status,401);
 });
 test("tampered payload denies",async()=>{
@@ -36,8 +36,14 @@ test("expired signature denies",async()=>{
   assert.equal(await verifyDiscordRequest(r,pk),false);
 });
 test("unsigned and GET deny",async()=>{
-  const r=await adapter.fetch(new Request("https://bot.invalid/",{method:"POST",body:'{"type":1}'}),{DISCORD_PUBLIC_KEY:pk});
+  const r=await adapter.fetch(new Request("https://bot.invalid/",{method:"POST",body:'{"type":1}'}),{DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true'});
   assert.equal(r.status,401);
-  const get=await adapter.fetch(new Request("https://bot.invalid/"),{DISCORD_PUBLIC_KEY:pk});
+  const get=await adapter.fetch(new Request("https://bot.invalid/"),{DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true'});
   assert.equal(get.status,405);
+});
+
+test("default disabled even for signed ping", async()=>{
+  const r=await adapter.fetch(signed('{"type":1}'),{DISCORD_PUBLIC_KEY:pk});
+  assert.equal(r.status,503);
+  assert.equal((await r.json()).code,"BOT_DISABLED");
 });
