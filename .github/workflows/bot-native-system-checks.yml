@@ -21,7 +21,7 @@ jobs:
       - name: Python syntax verification
         run: python -m compileall -q BOT_NATIVE_SYSTEM/runtime
       - name: Pure offline bot system regression suite
-        run: cd BOT_NATIVE_SYSTEM/runtime && python -m unittest -v test_bot_runtime.py test_stage02.py
+        run: cd BOT_NATIVE_SYSTEM/runtime && python -m unittest -v test_bot_runtime.py test_stage02.py test_sqlite_ledger.py
       - name: Verify checked-in manifest and pointer are fail-closed
         run: |
           python - <<'PY'
