@@ -26,3 +26,12 @@ test("unconfirmed write must not accept request",async()=>{
  const db={prepare(){return {bind(){return {async run(){return {success:false,meta:{changes:1}}}}}}}};
  await assert.rejects(d1ReplayGuard(db).claim(key),/D1_UNCONFIRMED/);
 });
+
+test('missing changes rejects rather than assuming replay',async()=>{
+ const db={prepare(){return {bind(){return {async run(){return {success:true,meta:{}}}}}}}};
+ await assert.rejects(d1ReplayGuard(db).claim(key),/D1_CHANGE_COUNT_INVALID/);
+});
+test('invalid changes rejects',async()=>{
+ const db={prepare(){return {bind(){return {async run(){return {success:true,meta:{changes:2}}}}}}}};
+ await assert.rejects(d1ReplayGuard(db).claim(key),/D1_CHANGE_COUNT_INVALID/);
+});
