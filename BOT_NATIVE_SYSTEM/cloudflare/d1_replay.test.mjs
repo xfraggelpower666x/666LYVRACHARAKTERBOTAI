@@ -9,9 +9,9 @@ function mockDb() {
   assert.match(sql,/INSERT OR IGNORE/);
   return {bind(id,expires) {
    return {async run() {
-    if(keys.has(id)) return {meta:{changes:0}};
+    if(keys.has(id)) return {success:true,meta:{changes:0}};
     keys.add(id);
-    return {meta:{changes:1}};
+    return {success:true,meta:{changes:1}};
    }};
   }};
  }};
@@ -21,3 +21,8 @@ test("first insert succeeds, replay rejected",async()=>{const x=d1ReplayGuard(mo
 test("missing binding rejects",()=>assert.throws(()=>d1ReplayGuard(),/D1_BINDING_MISSING/));
 test("invalid key rejected",async()=>assert.equal(await d1ReplayGuard(mockDb()).claim("x"),false));
 test("storage error propagates for fail closed upstream",async()=>{const x=d1ReplayGuard({prepare(){throw Error("quota")}});await assert.rejects(x.claim(key),/quota/)});
+
+test("unconfirmed write must not accept request",async()=>{
+ const db={prepare(){return {bind(){return {async run(){return {success:false,meta:{changes:1}}}}}}}};
+ await assert.rejects(d1ReplayGuard(db).claim(key),/D1_UNCONFIRMED/);
+});
