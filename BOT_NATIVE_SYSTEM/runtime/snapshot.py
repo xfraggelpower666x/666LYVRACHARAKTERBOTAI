@@ -1,5 +1,6 @@
 """Offline snapshot of the bot's own provenance ledger; never a native LYVRA boot."""
 from rehydration_stage02 import rehydrate
+import sqlite3
 from sqlite_ledger import read
 
 def snapshot(manifest, pointer, observed_head, expected_branch, ledger_path):
@@ -8,7 +9,7 @@ def snapshot(manifest, pointer, observed_head, expected_branch, ledger_path):
         return {**result, "facets": {}, "events": 0}
     try:
         records = read(ledger_path, set(manifest.get("facets", [])))
-    except (ValueError, OSError, RuntimeError) as exc:
+    except (ValueError, OSError, RuntimeError, sqlite3.DatabaseError):
         return {**result, "status": "BLOCKED", "blockers": ["LEDGER_READBACK_FAILED"], "facets": {}, "events": 0}
     facets = {f: {"events": 0, "latest_event_id": None} for f in manifest.get("facets", [])}
     for record in records:
