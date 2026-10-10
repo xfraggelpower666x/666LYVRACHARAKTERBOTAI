@@ -24,7 +24,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def api(route: str, *, token: str = "", payload: object | None = None):
-    if not route.startswith("/repos/") or ".." in route:
+    if not route.startswith("/repos/") or any(part in (".", "..") for part in route.split("?", 1)[0].split("/")):
         raise ValueError("API route not permitted")
     headers = {"Accept": "application/vnd.github+json",
                "User-Agent": "LYVRA-Bot-TODO-Metadata-Watch",
