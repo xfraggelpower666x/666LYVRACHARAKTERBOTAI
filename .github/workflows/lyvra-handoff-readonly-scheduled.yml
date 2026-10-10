@@ -2,6 +2,10 @@ name: LYVRA Native to Bot Readonly Handoff Poll
 # GitHub schedule executes on DEFAULT branch; explicitly checkout DEV receiver.
 # No production bot code runs and no Discord token is available.
 on:
+  push:
+    branches: [lyvrabot]
+    paths:
+      - '.github/workflows/lyvra-handoff-readonly-scheduled.yml'
   schedule:
     - cron: '37 */6 * * *'
   workflow_dispatch:
