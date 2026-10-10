@@ -28,3 +28,11 @@ class SnapshotTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             r=snapshot(M,P,SHA,"dev",Path(d)/"events.db")
             self.assertFalse(r["native_lyvra_rehydrated"])
+
+    def test_corrupt_sqlite_blocks_without_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'events.db'
+            p.write_text('not a sqlite database')
+            result=snapshot(M,P,SHA,'dev',p)
+            self.assertEqual(result['status'],'BLOCKED')
+            self.assertIn('LEDGER_READBACK_FAILED',result['blockers'])
