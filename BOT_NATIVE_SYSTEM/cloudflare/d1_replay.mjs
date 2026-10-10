@@ -12,7 +12,9 @@ export function d1ReplayGuard(db) {
         "INSERT OR IGNORE INTO bot_replay_claims (id, expires_at) VALUES (?, ?)"
       ).bind(id, until).run();
       if (result?.success !== true) throw Error('D1_UNCONFIRMED');
-      return result?.meta?.changes === 1;
+      const changes = result?.meta?.changes;
+      if (changes !== 0 && changes !== 1) throw Error('D1_CHANGE_COUNT_INVALID');
+      return changes === 1;
     }
   };
 }
