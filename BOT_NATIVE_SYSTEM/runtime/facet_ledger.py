@@ -14,6 +14,10 @@ def append_event(path, event, allowed_facets):
     if target.is_symlink():
         raise ValueError('SYMLINK_REJECTED')
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        for prior in load_events(target, allowed_facets):
+            if prior['event_id'] == event['event_id']:
+                raise ValueError('DUPLICATE_EVENT_ID')
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
     if hasattr(os, 'O_NOFOLLOW'):
         flags |= os.O_NOFOLLOW
