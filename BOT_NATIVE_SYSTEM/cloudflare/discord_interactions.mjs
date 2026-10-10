@@ -31,6 +31,20 @@ export default {
     if (!env?.DISCORD_PUBLIC_KEY || !await verifyDiscordRequest(request, env.DISCORD_PUBLIC_KEY)) {
       return json({ok:false,code:"BAD_SIGNATURE"}, 401);
     }
+    // Replay gate: an atomic, shared claim service is required for ALL accepted requests.
+    // A Worker-local Map is not sufficient across isolates or edge locations.
+    if (!env?.REPLAY_GUARD || typeof env.REPLAY_GUARD.claim !== "function") {
+      return json({ok:false,code:"REPLAY_GUARD_REQUIRED"},503);
+    }
+    const signature = request.headers.get("x-signature-ed25519");
+    const timestamp = request.headers.get("x-signature-timestamp");
+    let claimed;
+    try {
+      claimed = await env.REPLAY_GUARD.claim(timestamp + ":" + signature);
+    } catch {
+      return json({ok:false,code:"REPLAY_GUARD_UNAVAILABLE"},503);
+    }
+    if (claimed !== true) return json({ok:false,code:"REPLAY_REJECTED"},409);
     let interaction;
     try { interaction = await request.json(); } catch { return json({ok:false,code:"BAD_BODY"},400); }
     if (interaction?.type === 1) return json({type:1});
