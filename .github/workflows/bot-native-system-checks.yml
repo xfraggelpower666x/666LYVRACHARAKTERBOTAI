@@ -36,3 +36,9 @@ jobs:
           if result["status"]!="STRUCTURE_PASS" or result["release_ready"]:
               sys.exit(1)
           PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Cloudflare Discord signature offline regression
+        run: node --test BOT_NATIVE_SYSTEM/cloudflare/discord_interactions.test.mjs
