@@ -92,7 +92,7 @@ def read_native_handoff(*, token: str = "") -> dict:
     raw = base64.b64decode(entry["content"], validate=False)
     if len(raw) > 50000:
         raise ValueError("Handoff too large")
-    git_sha = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest()
+    git_sha = hashlib.sha1(b"blob " + str(len(raw)).encode() + bytes([0]) + raw).hexdigest()
     if git_sha != entry.get("sha"):
         raise ValueError("Native handoff content differs from Git blob")
     payload = json.loads(raw.decode("utf-8"))
