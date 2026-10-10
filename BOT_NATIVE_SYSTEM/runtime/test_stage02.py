@@ -40,3 +40,15 @@ class Stage02Tests(unittest.TestCase):
             p=Path(d)/'e.jsonl';append_event(p,E,{'livecircle'})
             with self.assertRaisesRegex(ValueError,'DUPLICATE_EVENT_ID'):
                 append_event(p,E,{'livecircle'})
+
+    def test_two_sequential_events(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'e.jsonl'
+            append_event(p,E,{'livecircle'})
+            append_event(p,{**E,'event_id':'e2'},{'livecircle'})
+            self.assertEqual(len(load_events(p,{'livecircle'})),2)
+    def test_lockfile_created(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'e.jsonl'
+            append_event(p,E,{'livecircle'})
+            self.assertTrue(Path(str(p)+'.lock').exists())
