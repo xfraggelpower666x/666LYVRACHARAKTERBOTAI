@@ -76,16 +76,28 @@ class ReciprocalLearningTests(unittest.TestCase):
         event_id = prepare_candidate(sample())["event_id"]
         result = validate_receipt({"event_id": event_id, "decision": "ACK"}, event_id)
         self.assertFalse(result["native_adopted"])
+        self.assertEqual(result["status"], "BOT_RECEIPT_ONLY")
 
     def test_adoption_requires_native_readback(self):
         event_id = prepare_candidate(sample())["event_id"]
         with self.assertRaises(ValueError):
             validate_receipt({"event_id": event_id, "decision": "ADOPTED"}, event_id)
-        confirmed = validate_receipt({
-            "event_id": event_id, "decision": "ADOPTED",
-            "native_adoption_commit": "c" * 40, "native_readback_pass": True
-        }, event_id)
+        report = {"event_id": event_id, "decision": "ADOPTED",
+                  "native_adoption_commit": "c" * 40, "native_readback_pass": True}
+        unverified = validate_receipt(report, event_id)
+        self.assertFalse(unverified["native_adopted"])
+        self.assertEqual(unverified["status"], "ADOPTION_REPORTED_READBACK_PENDING")
+        with self.assertRaises(ValueError):
+            validate_receipt(report, event_id, verified_native_readback={
+                "source": "INDEPENDENT_NATIVE_GITHUB_READBACK",
+                "commit": "d" * 40, "event_id": event_id, "matched": True
+            })
+        trusted_readback = {"source": "INDEPENDENT_NATIVE_GITHUB_READBACK",
+                            "commit": "c" * 40, "event_id": event_id,
+                            "matched": True}
+        confirmed = validate_receipt(report, event_id, verified_native_readback=trusted_readback)
         self.assertTrue(confirmed["native_adopted"])
+        self.assertFalse(confirmed["independent_readback_performed_here"])
 
 
 if __name__ == "__main__":
