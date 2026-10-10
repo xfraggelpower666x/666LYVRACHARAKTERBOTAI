@@ -32,3 +32,10 @@ class SQLiteLedgerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaisesRegex(ValueError,"INVALID_SOURCE_SHA"):
                 append(Path(d)/"bot.sqlite3",{**EVENT,"source_sha":"invalid"},{"livecircle"})
+
+    def test_symlink_read_denied(self):
+        with tempfile.TemporaryDirectory() as d:
+            target=Path(d)/'db';target.touch()
+            link=Path(d)/'link';link.symlink_to(target)
+            with self.assertRaisesRegex(ValueError,'SYMLINK_REJECTED'):
+                read(link,{'livecircle'})
