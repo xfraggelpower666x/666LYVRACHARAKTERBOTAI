@@ -1,3 +1,4 @@
+import {d1ReplayGuard} from "./d1_replay.mjs";
 // Cloudflare-only Discord HTTP Interactions adapter, nonproduction.
 // Ed25519 signature validation occurs before all parsing. No outbound API,
 // model inference, KV/D1 writes, native LYVRA Worker calls, or paid features.
@@ -33,14 +34,15 @@ export default {
     }
     // Replay gate: an atomic, shared claim service is required for ALL accepted requests.
     // A Worker-local Map is not sufficient across isolates or edge locations.
-    if (!env?.REPLAY_GUARD || typeof env.REPLAY_GUARD.claim !== "function") {
+    const guard = env?.BOT_REPLAY_DB ? d1ReplayGuard(env.BOT_REPLAY_DB) : env?.REPLAY_GUARD;
+    if (!guard || typeof guard.claim !== "function") {
       return json({ok:false,code:"REPLAY_GUARD_REQUIRED"},503);
     }
     const signature = request.headers.get("x-signature-ed25519");
     const timestamp = request.headers.get("x-signature-timestamp");
     let claimed;
     try {
-      claimed = await env.REPLAY_GUARD.claim(timestamp + ":" + signature);
+      claimed = await guard.claim(timestamp + ":" + signature);
     } catch {
       return json({ok:false,code:"REPLAY_GUARD_UNAVAILABLE"},503);
     }
