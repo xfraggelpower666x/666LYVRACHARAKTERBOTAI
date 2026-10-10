@@ -82,19 +82,43 @@ def prepare_candidate(payload: dict) -> dict:
     }
 
 
-def validate_receipt(receipt: dict, event_id: str) -> dict:
-    """Validate a review receipt without equating ACK with native adoption."""
+def validate_receipt(receipt: dict, event_id: str, *, verified_native_readback=None) -> dict:
+    """Classify a bot-provided receipt without trusting its self-attested PASS.
+
+    The verifier is a caller-supplied independently executed native GitHub
+    readback with a pinned commit SHA and confirmed matched content. A boolean
+    inside the untrusted receipt NEVER establishes native adoption.
+    """
     if not isinstance(receipt, dict) or receipt.get("event_id") != event_id:
         raise ValueError("Mismatched event receipt")
     decision = receipt.get("decision")
     if decision not in ("ACK", "DEFER", "REJECT", "ADOPTED"):
         raise ValueError("Unknown receipt decision")
+
+    commit = receipt.get("native_adoption_commit")
     if decision == "ADOPTED":
-        if (not SHA40.fullmatch(str(receipt.get("native_adoption_commit", "")))
-                or receipt.get("native_readback_pass") is not True):
-            raise ValueError("Native adoption requires commit and readback")
+        if not isinstance(commit, str) or not SHA40.fullmatch(commit):
+            raise ValueError("Native adoption report requires pinned commit")
+        if verified_native_readback is not None:
+            if (not isinstance(verified_native_readback, dict)
+                    or verified_native_readback.get("source") != "INDEPENDENT_NATIVE_GITHUB_READBACK"
+                    or verified_native_readback.get("commit") != commit
+                    or verified_native_readback.get("event_id") != event_id
+                    or verified_native_readback.get("matched") is not True):
+                raise ValueError("Independent native readback evidence inconsistent")
+
+    confirmed = decision == "ADOPTED" and isinstance(verified_native_readback, dict) and (
+        verified_native_readback.get("source") == "INDEPENDENT_NATIVE_GITHUB_READBACK"
+        and verified_native_readback.get("commit") == commit
+        and verified_native_readback.get("event_id") == event_id
+        and verified_native_readback.get("matched") is True
+    )
     return {
         "event_id": event_id, "decision": decision,
-        "native_adopted": decision == "ADOPTED",
-        "receipt_verified": True,
+        "native_adopted": confirmed,
+        "status": "NATIVE_ADOPTION_READBACK_VERIFIED" if confirmed
+                  else ("ADOPTION_REPORTED_READBACK_PENDING" if decision == "ADOPTED"
+                        else "BOT_RECEIPT_ONLY"),
+        "receipt_syntax_valid": True,
+        "independent_readback_performed_here": False,
     }
