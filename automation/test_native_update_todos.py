@@ -1,8 +1,10 @@
 """Offline tests: issue-only bot TODO watcher never modifies bot/native code."""
 import unittest
+import io
+from unittest.mock import patch
 
 from native_update_todos import (
-    candidate_from_compare, classify_path, update_issue_body,
+    candidate_from_compare, classify_path, update_issue_body, api,
 )
 
 OLD = "1" * 40
@@ -11,6 +13,22 @@ BODY = ("# Native bot TODO\n\n## Offene Integrationsaufgaben\n"
         "- [x] Historischer Test erledigt\n"
         "## Arbeitsregeln\nNoch keine Freigabe.\n\n"
         f"<!-- LYVRA_NATIVE_HEAD:{OLD} -->\n")
+
+
+class ApiRouteGuardTests(unittest.TestCase):
+    def test_compare_separator_is_not_path_traversal(self):
+        route = "/repos/xfraggelpower666x/sample/compare/" + OLD + "..." + NEW
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(b"{}")) as mocked:
+            self.assertEqual(api(route), {})
+        mocked.assert_called_once()
+
+    def test_parent_path_segment_rejected(self):
+        with self.assertRaises(ValueError):
+            api("/repos/xfraggelpower666x/sample/../private")
+
+    def test_missing_repo_prefix_rejected(self):
+        with self.assertRaises(ValueError):
+            api("/users/xfraggelpower666x")
 
 
 class TodoClassificationTests(unittest.TestCase):
