@@ -26,6 +26,10 @@ jobs:
         run: python -m py_compile native_bridge/reciprocal_learning.py native_bridge/reciprocal_outbox.py native_bridge/repo_handoff_probe.py tests/test_reciprocal_learning.py tests/test_reciprocal_outbox.py tests/test_repo_handoff_probe.py
       - name: Run safe offline tests without secrets or Discord
         run: python -m unittest -v tests/test_reciprocal_learning.py tests/test_reciprocal_outbox.py tests/test_repo_handoff_probe.py
+      - name: Verify native repository handoff receive over read-only GitHub API
+        env:
+          GH_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m native_bridge.repo_handoff_probe
       - name: Verify no private runtime artifacts
         run: |
           test ! -f .env
