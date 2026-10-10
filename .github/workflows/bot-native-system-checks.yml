@@ -41,4 +41,4 @@ jobs:
         with:
           node-version: '22'
       - name: Cloudflare Discord signature offline regression
-        run: node --test BOT_NATIVE_SYSTEM/cloudflare/discord_interactions.test.mjs
+        run: node --test BOT_NATIVE_SYSTEM/cloudflare/discord_interactions.test.mjs BOT_NATIVE_SYSTEM/cloudflare/d1_replay.test.mjs
