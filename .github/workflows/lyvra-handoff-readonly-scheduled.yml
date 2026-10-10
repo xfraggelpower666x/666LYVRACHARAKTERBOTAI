@@ -1,0 +1,51 @@
+name: LYVRA Native to Bot Readonly Handoff Poll
+# GitHub schedule executes on DEFAULT branch; explicitly checkout DEV receiver.
+# No production bot code runs and no Discord token is available.
+on:
+  schedule:
+    - cron: '37 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: lyvra-characterbot-readonly-native-handoff
+  cancel-in-progress: false
+
+jobs:
+  native-to-bot-observation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout reviewed DEV read-only receiver
+        uses: actions/checkout@v4
+        with:
+          ref: lyvrabot-dev-native-livecircle-20261002
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline contract regression tests
+        run: |
+          python -m py_compile native_bridge/repo_handoff_probe.py
+          python -m unittest -v tests/test_repo_handoff_probe.py
+      - name: Observe native outbound handoff pinned to actual native HEAD
+        env:
+          GH_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m native_bridge.repo_handoff_probe | tee /tmp/lyvra-native-handoff.json
+          python - <<'PY'
+          import json, os
+          with open('/tmp/lyvra-native-handoff.json', encoding='utf-8') as f:
+              r = json.load(f)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+              f.write('## LYVRA → Character Bot · read-only observation\n')
+              for k in ('event_id', 'status', 'native_head_observed', 'handoff_git_blob'):
+                  f.write(f'- {k}: `{r[k]}`\n')
+              f.write('- Bot adoption: **not authorized**; no Discord changes\n')
+          PY
+      - name: Verify no local private bot runtime
+        run: |
+          test ! -f .env
+          test ! -e character_state
+          test ! -e state/lyvra_livecircle.sqlite3
