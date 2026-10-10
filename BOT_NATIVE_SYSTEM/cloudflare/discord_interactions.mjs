@@ -26,6 +26,7 @@ export async function verifyDiscordRequest(request, publicKey) {
 }
 export default {
   async fetch(request, env) {
+    if (env?.BOT_INTERACTIONS_TEST_ENABLED !== "true") return json({ok:false,code:"BOT_DISABLED"}, 503);
     if (request.method !== "POST") return json({ok:false,code:"METHOD_DENIED"}, 405);
     if (!env?.DISCORD_PUBLIC_KEY || !await verifyDiscordRequest(request, env.DISCORD_PUBLIC_KEY)) {
       return json({ok:false,code:"BAD_SIGNATURE"}, 401);
