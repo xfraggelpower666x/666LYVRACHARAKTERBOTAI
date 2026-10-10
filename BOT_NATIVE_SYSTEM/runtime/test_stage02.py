@@ -37,6 +37,6 @@ class Stage02Tests(unittest.TestCase):
                 load_events(p,{'livecircle'})
     def test_duplicates_rejected(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/'e.jsonl';append_event(p,E,{'livecircle'});append_event(p,E,{'livecircle'})
+            p=Path(d)/'e.jsonl';append_event(p,E,{'livecircle'})
             with self.assertRaisesRegex(ValueError,'DUPLICATE_EVENT_ID'):
-                load_events(p,{'livecircle'})
+                append_event(p,E,{'livecircle'})
