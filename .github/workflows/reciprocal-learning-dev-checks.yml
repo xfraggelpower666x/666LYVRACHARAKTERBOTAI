@@ -4,7 +4,9 @@ on:
     branches: [lyvrabot-dev-native-livecircle-20261002]
     paths:
       - 'native_bridge/reciprocal_learning.py'
+      - 'native_bridge/reciprocal_outbox.py'
       - 'tests/test_reciprocal_learning.py'
+      - 'tests/test_reciprocal_outbox.py'
       - '.github/workflows/reciprocal-learning-dev-checks.yml'
   workflow_dispatch:
 permissions:
@@ -19,9 +21,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify code syntax
-        run: python -m py_compile native_bridge/reciprocal_learning.py tests/test_reciprocal_learning.py
+        run: python -m py_compile native_bridge/reciprocal_learning.py native_bridge/reciprocal_outbox.py tests/test_reciprocal_learning.py tests/test_reciprocal_outbox.py
       - name: Run safe offline tests without secrets or Discord
-        run: python -m unittest -v tests/test_reciprocal_learning.py
+        run: python -m unittest -v tests/test_reciprocal_learning.py tests/test_reciprocal_outbox.py
       - name: Verify no private runtime artifacts
         run: |
           test ! -f .env
