@@ -11,6 +11,7 @@ export function d1ReplayGuard(db) {
       const result = await db.prepare(
         "INSERT OR IGNORE INTO bot_replay_claims (id, expires_at) VALUES (?, ?)"
       ).bind(id, until).run();
+      if (result?.success !== true) throw Error('D1_UNCONFIRMED');
       return result?.meta?.changes === 1;
     }
   };
