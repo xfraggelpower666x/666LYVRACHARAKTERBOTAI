@@ -44,6 +44,8 @@ def append(path, event, facets):
 
 def read(path, facets):
     file = Path(path)
+    if file.is_symlink():
+        raise ValueError('SYMLINK_REJECTED')
     if not file.exists():
         return []
     with connect(path) as db:
