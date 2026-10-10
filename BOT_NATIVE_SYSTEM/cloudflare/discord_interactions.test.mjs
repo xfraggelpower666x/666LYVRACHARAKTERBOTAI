@@ -14,7 +14,7 @@ const claimOnce = () => {
     return true;
   }};
 };
-const ready = () => ({DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true',REPLAY_GUARD:claimOnce()});
+const ready = () => ({DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true',BOT_ALLOW_MOCK_REPLAY:'true',REPLAY_GUARD:claimOnce()});
 function signed(body, timestamp = String(Math.floor(Date.now()/1000))) {
   const sig=sign(null,Buffer.concat([Buffer.from(timestamp),Buffer.from(body)]),privateKey).toString("hex");
   return new Request("https://bot.invalid/interactions",{
@@ -31,7 +31,7 @@ test("ordinary signed commands remain blocked",async()=>{
   assert.equal((await r.json()).data.flags,64);
 });
 test("no configured public key denies",async()=>{
-  const r=await adapter.fetch(signed('{"type":1}'),{BOT_INTERACTIONS_TEST_ENABLED:'true',REPLAY_GUARD:claimOnce()});
+  const r=await adapter.fetch(signed('{"type":1}'),{BOT_INTERACTIONS_TEST_ENABLED:'true',BOT_ALLOW_MOCK_REPLAY:'true',REPLAY_GUARD:claimOnce()});
   assert.equal(r.status,401);
 });
 test("tampered payload denies",async()=>{
