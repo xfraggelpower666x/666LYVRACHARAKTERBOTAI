@@ -16,11 +16,31 @@ export async function verifyDiscordRequest(request, publicKey) {
   const t = Number(timestamp);
   if (!Number.isSafeInteger(t) || Math.abs(Math.floor(Date.now()/1000) - t) > 300) return false;
   try {
-    const body = await request.clone().arrayBuffer();
-    if (body.byteLength > 65536) return false;
-    const signed = new Uint8Array(new TextEncoder().encode(timestamp).length + body.byteLength);
+    const reader = request.clone().body?.getReader();
+    if (!reader) return false;
+    const chunks = [];
+    let length = 0;
+    try {
+      for (;;) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        length += value.byteLength;
+        if (length > 65536) {
+          await reader.cancel();
+          return false;
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    const signed = new Uint8Array(timestamp.length + length);
     signed.set(new TextEncoder().encode(timestamp));
-    signed.set(new Uint8Array(body), timestamp.length);
+    let position = timestamp.length;
+    for (const chunk of chunks) {
+      signed.set(chunk, position);
+      position += chunk.byteLength;
+    }
     const key = await crypto.subtle.importKey("raw", bytes(publicKey), {name: "Ed25519"}, false, ["verify"]);
     return await crypto.subtle.verify("Ed25519", key, bytes(signature), signed);
   } catch { return false; }
