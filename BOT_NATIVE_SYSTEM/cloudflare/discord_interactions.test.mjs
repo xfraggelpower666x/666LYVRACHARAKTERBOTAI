@@ -94,3 +94,17 @@ test("test activation without mock flag cannot use local replay", async()=>{
   assert.equal(result.status,503);
   assert.equal((await result.json()).code,"REPLAY_GUARD_REQUIRED");
 });
+
+test("oversized signed body is rejected before replay claim", async()=>{
+  let called=false;
+  const env={...ready(),REPLAY_GUARD:{claim:async()=>{called=true;return true;}}};
+  const result=await adapter.fetch(signed("x".repeat(65537)),env);
+  assert.equal(result.status,401);
+  assert.equal(called,false);
+});
+test("exactly 64KiB signed body passes signature gate then rejects invalid JSON",async()=>{
+  const data=" ".repeat(65536);
+  const result=await adapter.fetch(signed(data),ready());
+  assert.equal(result.status,400);
+  assert.equal((await result.json()).code,"BAD_BODY");
+});
