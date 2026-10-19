@@ -35,8 +35,13 @@ export default {
     // Replay gate: an atomic, shared claim service is required for ALL accepted requests.
     // A Worker-local Map is not sufficient across isolates or edge locations.
     // Production must use the dedicated D1 binding; mock fallback is test-only.
-    const guard = env?.BOT_REPLAY_DB ? d1ReplayGuard(env.BOT_REPLAY_DB) :
-      (env?.BOT_INTERACTIONS_TEST_ENABLED === "true" && env?.BOT_ALLOW_MOCK_REPLAY === "true" ? env?.REPLAY_GUARD : null);
+    let guard;
+    try {
+      guard = env?.BOT_REPLAY_DB ? d1ReplayGuard(env.BOT_REPLAY_DB) :
+        (env?.BOT_INTERACTIONS_TEST_ENABLED === "true" && env?.BOT_ALLOW_MOCK_REPLAY === "true" ? env?.REPLAY_GUARD : null);
+    } catch {
+      return json({ok:false,code:"REPLAY_GUARD_UNAVAILABLE"},503);
+    }
     if (!guard || typeof guard.claim !== "function") {
       return json({ok:false,code:"REPLAY_GUARD_REQUIRED"},503);
     }
