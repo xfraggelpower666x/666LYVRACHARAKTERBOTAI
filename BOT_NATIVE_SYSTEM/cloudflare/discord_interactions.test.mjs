@@ -114,3 +114,9 @@ test('declared oversized request denied',async()=>{
  req.headers.set('content-length','65537');
  assert.equal((await adapter.fetch(req,ready())).status,401);
 });
+
+test('nonnumeric declared content length rejected',async()=>{
+ const req=signed('{"type":1}');
+ req.headers.set('content-length','abc');
+ assert.equal((await adapter.fetch(req,ready())).status,401);
+});
