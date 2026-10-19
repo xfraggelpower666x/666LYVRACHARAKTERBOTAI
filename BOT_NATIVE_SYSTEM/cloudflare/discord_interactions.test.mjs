@@ -75,3 +75,22 @@ test("replay service outage fails closed", async()=>{
   assert.equal(r.status,503);
   assert.equal((await r.json()).code,"REPLAY_GUARD_UNAVAILABLE");
 });
+
+test("invalid D1 binding fails closed without crash", async()=>{
+  const env={DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true',BOT_REPLAY_DB:{}};
+  const result=await adapter.fetch(signed('{"type":1}'),env);
+  assert.equal(result.status,503);
+  assert.equal((await result.json()).code,"REPLAY_GUARD_UNAVAILABLE");
+});
+test("mock flag without test activation remains disabled", async()=>{
+  const env={DISCORD_PUBLIC_KEY:pk,BOT_ALLOW_MOCK_REPLAY:'true',REPLAY_GUARD:claimOnce()};
+  const result=await adapter.fetch(signed('{"type":1}'),env);
+  assert.equal(result.status,503);
+  assert.equal((await result.json()).code,"BOT_DISABLED");
+});
+test("test activation without mock flag cannot use local replay", async()=>{
+  const env={DISCORD_PUBLIC_KEY:pk,BOT_INTERACTIONS_TEST_ENABLED:'true',REPLAY_GUARD:claimOnce()};
+  const result=await adapter.fetch(signed('{"type":1}'),env);
+  assert.equal(result.status,503);
+  assert.equal((await result.json()).code,"REPLAY_GUARD_REQUIRED");
+});
