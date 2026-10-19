@@ -108,3 +108,9 @@ test("exactly 64KiB signed body passes signature gate then rejects invalid JSON"
   assert.equal(result.status,400);
   assert.equal((await result.json()).code,"BAD_BODY");
 });
+
+test('declared oversized request denied',async()=>{
+ const req=signed('{"type":1}');
+ req.headers.set('content-length','65537');
+ assert.equal((await adapter.fetch(req,ready())).status,401);
+});
