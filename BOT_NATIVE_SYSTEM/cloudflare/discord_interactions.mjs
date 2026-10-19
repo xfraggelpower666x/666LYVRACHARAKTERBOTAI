@@ -36,7 +36,7 @@ export default {
     // A Worker-local Map is not sufficient across isolates or edge locations.
     // Production must use the dedicated D1 binding; mock fallback is test-only.
     const guard = env?.BOT_REPLAY_DB ? d1ReplayGuard(env.BOT_REPLAY_DB) :
-      (env?.BOT_ALLOW_MOCK_REPLAY === "true" ? env?.REPLAY_GUARD : null);
+      (env?.BOT_INTERACTIONS_TEST_ENABLED === "true" && env?.BOT_ALLOW_MOCK_REPLAY === "true" ? env?.REPLAY_GUARD : null);
     if (!guard || typeof guard.claim !== "function") {
       return json({ok:false,code:"REPLAY_GUARD_REQUIRED"},503);
     }
