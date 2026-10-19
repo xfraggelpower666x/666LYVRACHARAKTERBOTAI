@@ -16,6 +16,8 @@ export async function verifyDiscordRequest(request, publicKey) {
   const t = Number(timestamp);
   if (!Number.isSafeInteger(t) || Math.abs(Math.floor(Date.now()/1000) - t) > 300) return false;
   try {
+    const declaredLength = request.headers.get("content-length");
+    if (declaredLength && Number(declaredLength) > 65536) return false;
     const reader = request.clone().body?.getReader();
     if (!reader) return false;
     const chunks = [];
