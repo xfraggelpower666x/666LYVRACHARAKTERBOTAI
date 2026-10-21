@@ -28,7 +28,8 @@ export async function verifyDiscordRequest(request, publicKey) {
         if (done) break;
         length += value.byteLength;
         if (length > 65536) {
-          await reader.cancel();
+          // A cloned Request uses a teed stream: awaiting cancel can wait for the unread sibling.
+          void reader.cancel().catch(() => {});
           return false;
         }
         chunks.push(value);
