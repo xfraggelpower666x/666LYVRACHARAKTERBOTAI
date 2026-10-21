@@ -120,3 +120,9 @@ test('nonnumeric declared content length rejected',async()=>{
  req.headers.set('content-length','abc');
  assert.equal((await adapter.fetch(req,ready())).status,401);
 });
+
+test('falsified short content length cannot bypass stream bound',async()=>{
+ const req=signed('x'.repeat(65537));
+ req.headers.set('content-length','1');
+ assert.equal((await adapter.fetch(req,ready())).status,401);
+});
