@@ -126,3 +126,11 @@ test('falsified short content length cannot bypass stream bound',async()=>{
  req.headers.set('content-length','1');
  assert.equal((await adapter.fetch(req,ready())).status,401);
 });
+
+test('oversized cloned request must not hang at stream cancellation',async()=>{
+ const response=await Promise.race([
+   adapter.fetch(signed('z'.repeat(65537)),ready()),
+   new Promise((_,reject)=>setTimeout(()=>reject(Error('CANCEL_HUNG')),1000))
+ ]);
+ assert.equal(response.status,401);
+});
