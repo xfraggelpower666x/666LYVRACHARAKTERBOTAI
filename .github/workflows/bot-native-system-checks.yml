@@ -21,7 +21,7 @@ jobs:
           echo "CI_EVENT_SHA=$GITHUB_SHA"
           echo "CHECKOUT_HEAD=$(git rev-parse HEAD)"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          git status --porcelain
+          test -z "$(git status --porcelain)"
           git rev-parse HEAD:BOT_NATIVE_SYSTEM/cloudflare/discord_interactions.mjs
           git rev-parse HEAD:BOT_NATIVE_SYSTEM/cloudflare/discord_interactions.test.mjs
       - uses: actions/setup-python@v5
